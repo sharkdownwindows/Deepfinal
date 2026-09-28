@@ -1,3 +1,6 @@
-# Draft seed-bank placeholder. Populate and freeze under DATA-04.
-version: draft
-seeds: []
+version: v1
+seeds:
+  - 11
+  - 22
+  - 33
+  - 44
