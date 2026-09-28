@@ -1,6 +1,7 @@
 import csv
 import hashlib
 from pathlib import Path
+from PIL import Image
 
 
 MANIFESTS = [
@@ -66,6 +67,13 @@ def validate_manifest(manifest_path: Path) -> bool:
             print("FAIL: missing file:", path)
             return False
 
+        try:
+            with Image.open(path) as image:
+                image.verify()
+        except Exception:
+            print("FAIL: unreadable image:", path)
+            return False
+
         actual_hash = sha256_file(path)
 
         if actual_hash != row["sha256"]:
@@ -73,14 +81,22 @@ def validate_manifest(manifest_path: Path) -> bool:
             return False
 
         if row["split"] == "train_pool":
+            if actual_hash in train_hashes:
+                print("FAIL: duplicate image in train pool:", path)
+                return False
             train_hashes.add(actual_hash)
         else:
+            if actual_hash in heldout_hashes:
+                print("FAIL: duplicate image in held-out set:", path)
+                return False
             heldout_hashes.add(actual_hash)
 
     if train_hashes & heldout_hashes:
         print("FAIL: held-out image also appears in train pool")
         return False
 
+    print("image readability: PASS")
+    print("within-split duplicates: PASS")
     print("hash: PASS")
     print("split: PASS")
     print("source/license: PASS")
