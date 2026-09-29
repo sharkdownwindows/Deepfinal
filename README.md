@@ -161,10 +161,9 @@ Every artifact has an owner and reviewer, and at least two members must be able
 to run the main pipeline. The team uses a short daily sync, explicit handoffs,
 milestone quality gates, and a maximum of two active issues per member.
 
-RQ1/RQ2 and the 18 core runs take priority over P1 work. Protocol changes require
-a decision record and consistent reruns of affected experiment cells; no new
-research variable is added after the Day-4 freeze without versioning the
-protocol.
+RQ1/RQ2 and the 18 core runs take priority over P1 work. Protocol v1 is frozen;
+changes require a new protocol version, a decision record, and consistent reruns
+of affected experiment cells.
 
 ## Current implementation status
 
@@ -174,8 +173,9 @@ protocol.
   are not implemented or verified.
 - No model or dataset has been downloaded, and no GPU experiment has been run.
 - No experimental metrics or findings are available.
-- Dependency versions, the model revision, dataset manifests, and the protocol
-  freeze remain pending.
+- Dependency versions, the model revision, and dataset manifests remain pending.
+- Protocol v1 was approved by the ML Lead and Evaluation Lead and frozen on
+  2026-09-29.
 
 ## Documentation
 
