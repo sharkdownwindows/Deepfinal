@@ -1,4 +1,4 @@
-﻿from personalized_t2i.config import validate_config
+from personalized_t2i.config import validate_config
 
 
 def valid_config():
@@ -28,10 +28,26 @@ def valid_config():
             "batch_size": 1,
             "gradient_accumulation_steps": 1,
             "scheduler": "constant",
+            "warmup_steps": 0,
             "mixed_precision": "fp16",
             "train_text_encoder": False,
             "prior_preservation": False,
+            "lora_dropout": 0.0,
+            "lora_target_modules": ["to_k", "to_q", "to_v", "to_out.0"],
+            "center_crop": True,
+            "random_flip": False,
             "seed": 42,
+        },
+        "inference": {
+            "prompt_bank_version": "v1",
+            "prompt_count": 8,
+            "seeds": [11, 22, 33, 44],
+            "resolution": 512,
+            "num_inference_steps": 30,
+            "guidance_scale": 7.5,
+            "scheduler": "fixed",
+            "negative_prompt": "",
+            "lora_scale": 1.0,
         },
     }
 

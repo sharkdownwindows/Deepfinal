@@ -25,7 +25,23 @@ training:
   batch_size: integer
   gradient_accumulation_steps: integer
   scheduler: string
+  warmup_steps: integer
   mixed_precision: string
   train_text_encoder: boolean
   prior_preservation: boolean
+  lora_dropout: number
+  lora_target_modules: array
+  center_crop: boolean
+  random_flip: boolean
   seed: integer
+
+inference:
+  prompt_bank_version: string
+  prompt_count: integer
+  seeds: array
+  resolution: integer
+  num_inference_steps: integer
+  guidance_scale: number
+  scheduler: string
+  negative_prompt: string
+  lora_scale: number
