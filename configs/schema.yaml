@@ -1,2 +1,31 @@
-# Draft configuration-schema placeholder.
-# Implement the contract in docs/planning/05_PROJECT_STRUCTURE.md under BE-01.
+# Configuration contract for reproducible LoRA experiments.
+
+run:
+  id: string
+  protocol_version: string
+
+model:
+  id: string
+  revision: string
+
+data:
+  concept_id: string
+  dataset_version: string
+  manifest: string
+  subset_size: integer
+  instance_prompt: string
+
+training:
+  rank: integer
+  alpha: integer
+  resolution: integer
+  learning_rate: number
+  max_train_steps: integer
+  checkpointing_steps: integer
+  batch_size: integer
+  gradient_accumulation_steps: integer
+  scheduler: string
+  mixed_precision: string
+  train_text_encoder: boolean
+  prior_preservation: boolean
+  seed: integer

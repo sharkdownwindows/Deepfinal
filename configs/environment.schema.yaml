@@ -1,0 +1,25 @@
+# Environment metadata contract for reproducible runs.
+
+git:
+  commit: string
+
+python:
+  version: string
+
+packages:
+  versions: object
+
+cuda:
+  available: boolean
+  version: string
+
+driver:
+  version: string
+
+gpu:
+  name: string
+  count: integer
+
+runtime:
+  platform: string
+  device: string
