@@ -1,6 +1,7 @@
 """Configuration loading and validation for experiment runs."""
 
 from pathlib import Path
+
 import yaml
 
 
@@ -50,6 +51,15 @@ def validate_config(config: dict) -> None:
     if not model.get("revision"):
         raise ValueError("model.revision is required")
 
+    if not data.get("concept_id"):
+        raise ValueError("data.concept_id is required")
+
+    if not data.get("dataset_version"):
+        raise ValueError("data.dataset_version is required")
+
+    if not data.get("manifest"):
+        raise ValueError("data.manifest is required")
+
     if data.get("subset_size") not in ALLOWED_SUBSET_SIZES:
         raise ValueError(
             f"data.subset_size must be one of {sorted(ALLOWED_SUBSET_SIZES)}"
@@ -78,7 +88,10 @@ def validate_config(config: dict) -> None:
     if training.get("batch_size") != EXPECTED_BATCH_SIZE:
         raise ValueError("training.batch_size must be 1")
 
-    if training.get("gradient_accumulation_steps") != EXPECTED_GRADIENT_ACCUMULATION_STEPS:
+    if (
+        training.get("gradient_accumulation_steps")
+        != EXPECTED_GRADIENT_ACCUMULATION_STEPS
+    ):
         raise ValueError("training.gradient_accumulation_steps must be 1")
 
     if training.get("scheduler") != EXPECTED_SCHEDULER:
