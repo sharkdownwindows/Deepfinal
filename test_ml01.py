@@ -12,7 +12,7 @@ print("GPU Available:", torch.cuda.is_available())
 # Khởi tạo biến image mặc định
 image = None
 BACKBONE_MODEL_ID = "stable-diffusion-v1-5/stable-diffusion-v1-5"
-BACKBONE_REVISION = "main" # Pin model revision để đảm bảo tính ổn định
+BACKBONE_REVISION = "451f4fe" # Pin model revision để đảm bảo tính ổn định
 
 print(f"\n[BACKBONE DECISION] Đã chốt backbone: {BACKBONE_MODEL_ID}")
 print(f"[MODEL REVISION] Đã pin revision: {BACKBONE_REVISION}")
