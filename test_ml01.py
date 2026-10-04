@@ -11,6 +11,12 @@ print("GPU Available:", torch.cuda.is_available())
 
 # Khởi tạo biến image mặc định
 image = None
+BACKBONE_MODEL_ID = "stable-diffusion-v1-5/stable-diffusion-v1-5"
+BACKBONE_REVISION = "main" # Pin model revision để đảm bảo tính ổn định
+
+print(f"\n[BACKBONE DECISION] Đã chốt backbone: {BACKBONE_MODEL_ID}")
+print(f"[MODEL REVISION] Đã pin revision: {BACKBONE_REVISION}")
+print(f"Lý do: SDXL bị loại bỏ do không đạt gate phần cứng VRAM hiện tại.\n")
 
 if torch.cuda.is_available():
     # Reset thống kê VRAM đỉnh trước khi chạy
@@ -25,6 +31,7 @@ if torch.cuda.is_available():
 
     pipe = StableDiffusionPipeline.from_pretrained(
         model_id,
+        revision=BACKBONE_REVISION,
         torch_dtype=torch.float16
     )
     pipe = pipe.to("cuda")
