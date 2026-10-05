@@ -54,7 +54,7 @@ concepts:
       category: challenging_composition
       prompt: "a photo of zzobj01 mug beside a book and a small plant"
 
-blue_white_vase:
+  blue_white_vase:
     - prompt_id: p01
       category: simple
       prompt: "a photo of zzobj03 vase"
