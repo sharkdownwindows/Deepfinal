@@ -1,3 +1,80 @@
-# Draft prompt-bank placeholder. Populate and freeze under DATA-04.
-version: draft
-concepts: {}
+version: v1
+
+concepts:
+  cat_mug:
+    - prompt_id: p01
+      category: simple
+      prompt: "a photo of zzobj01 mug"
+    - prompt_id: p02
+      category: simple
+      prompt: "a close-up photo of zzobj01 mug"
+    - prompt_id: p03
+      category: new_background
+      prompt: "a photo of zzobj01 mug on a wooden table"
+    - prompt_id: p04
+      category: new_background
+      prompt: "a photo of zzobj01 mug on a kitchen counter"
+    - prompt_id: p05
+      category: viewpoint_action
+      prompt: "a top view photo of zzobj01 mug"
+    - prompt_id: p06
+      category: viewpoint_action
+      prompt: "a side view photo of zzobj01 mug"
+    - prompt_id: p07
+      category: style
+      prompt: "a watercolor painting of zzobj01 mug"
+    - prompt_id: p08
+      category: challenging_composition
+      prompt: "a photo of zzobj01 mug beside a book and a small plant"
+
+  dog_plush:
+    - prompt_id: p01
+      category: simple
+      prompt: "a photo of zzobj02 plush toy"
+    - prompt_id: p02
+      category: simple
+      prompt: "a close-up photo of zzobj02 plush toy"
+    - prompt_id: p03
+      category: new_background
+      prompt: "a photo of zzobj02 plush toy on a wooden floor"
+    - prompt_id: p04
+      category: new_background
+      prompt: "a photo of zzobj02 plush toy on a bed"
+    - prompt_id: p05
+      category: viewpoint_action
+      prompt: "a top view photo of zzobj02 plush toy"
+    - prompt_id: p06
+      category: viewpoint_action
+      prompt: "a side view photo of zzobj02 plush toy"
+    - prompt_id: p07
+      category: style
+      prompt: "a watercolor painting of zzobj02 plush toy"
+    - prompt_id: p08
+      category: challenging_composition
+      prompt: "a photo of zzobj02 plush toy beside a book and a small plant"
+
+  blue_white_vase:
+    - prompt_id: p01
+      category: simple
+      prompt: "a photo of zzobj03 vase"
+    - prompt_id: p02
+      category: simple
+      prompt: "a close-up photo of zzobj03 vase"
+    - prompt_id: p03
+      category: new_background
+      prompt: "a photo of zzobj03 vase on a wooden table"
+    - prompt_id: p04
+      category: new_background
+      prompt: "a photo of zzobj03 vase on a windowsill"
+    - prompt_id: p05
+      category: viewpoint_action
+      prompt: "a top view photo of zzobj03 vase"
+    - prompt_id: p06
+      category: viewpoint_action
+      prompt: "a side view photo of zzobj03 vase"
+    - prompt_id: p07
+      category: style
+      prompt: "a watercolor painting of zzobj03 vase"
+    - prompt_id: p08
+      category: challenging_composition
+      prompt: "a photo of zzobj03 vase with flowers beside a book"
