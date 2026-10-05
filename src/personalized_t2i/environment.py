@@ -86,13 +86,23 @@ def validate_environment_metadata(data):
     if gpu.get("name") is not None and not isinstance(gpu.get("name"), str):
         raise ValueError("gpu.name must be a string or null.")
 
-    if gpu.get("count") is not None and not isinstance(gpu.get("count"), int):
-        raise ValueError("gpu.count must be an integer or null.")
+    gpu_count = gpu.get("count")
 
-    if gpu.get("vram_mb") is not None and not isinstance(
-        gpu.get("vram_mb"), int
-    ):
-        raise ValueError("gpu.vram_mb must be an integer or null.")
+    if gpu_count is not None:
+        if type(gpu_count) is not int:
+            raise ValueError("gpu.count must be an integer or null.")
+        if gpu_count < 0:
+            raise ValueError("gpu.count must be greater than or equal to 0.")
+
+    gpu_vram_mb = gpu.get("vram_mb")
+
+    if gpu_vram_mb is not None:
+        if type(gpu_vram_mb) is not int:
+            raise ValueError("gpu.vram_mb must be an integer or null.")
+        if gpu_vram_mb < 0:
+            raise ValueError(
+                "gpu.vram_mb must be greater than or equal to 0."
+            )
 
     platform = data.get("platform")
 

@@ -83,3 +83,39 @@ def test_gpu_requires_cuda_version():
 
     with pytest.raises(ValueError):
         validate_environment_metadata(data)
+
+
+def test_gpu_count_rejects_boolean():
+    data = base_environment()
+
+    data["gpu"]["count"] = True
+
+    with pytest.raises(ValueError):
+        validate_environment_metadata(data)
+
+
+def test_gpu_count_rejects_negative_value():
+    data = base_environment()
+
+    data["gpu"]["count"] = -1
+
+    with pytest.raises(ValueError):
+        validate_environment_metadata(data)
+
+
+def test_gpu_vram_rejects_boolean():
+    data = base_environment()
+
+    data["gpu"]["vram_mb"] = True
+
+    with pytest.raises(ValueError):
+        validate_environment_metadata(data)
+
+
+def test_gpu_vram_rejects_negative_value():
+    data = base_environment()
+
+    data["gpu"]["vram_mb"] = -1
+
+    with pytest.raises(ValueError):
+        validate_environment_metadata(data)
