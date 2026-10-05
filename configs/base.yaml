@@ -1,10 +1,21 @@
 # Draft base configuration placeholder.
 # Populate and freeze this file after the Day-1/2 model and environment pilot.
+# Base configuration for DreamBooth-LoRA training
+run_id: "dog_plush_run_01"
 model:
   pretrained_model_name_or_path: "stable-diffusion-v1-5/stable-diffusion-v1-5"
+  revision: "451f4fe"
 training:
   learning_rate: 0.0001
   max_train_steps: 500
+  checkpointing_steps: 250
   resolution: 512
+  train_batch_size: 1
+  seed: 42
+data:
+  dataset_name: "custom"
+  train_data_dir: "data/processed/v1/train_pool/"
+  instance_prompt: "a photo of zzobj02 plush toy"
+  instance_token: "zzobj02"
 output:
-  output_dir: "artifacts/lora_output"
+  output_dir: "artifacts/dog_plush_run_01"

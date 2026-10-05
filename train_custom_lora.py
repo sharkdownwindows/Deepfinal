@@ -11,7 +11,7 @@ from torchvision import transforms
 MODEL_ID = "stable-diffusion-v1-5/stable-diffusion-v1-5"
 MODEL_REVISION = "451f4fe"
 INSTANCE_DIR = "data/raw/dog_plush/v1/train_pool" # Đường dẫn từ DATA-02
-INSTANCE_PROMPT = "a photo of sks dog_plush"
+INSTANCE_PROMPT = "a photo of zzobj02 plush toy"
 OUTPUT_DIR = "outputs/custom_lora_dog_plush"
 
 print("Đang tải mô hình gốc từ ML-01...")
