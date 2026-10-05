@@ -6,7 +6,7 @@ def run_inference():
     # Cấu hình thông tin run & seed để tái lập (reproducible)
     model_id = "stable-diffusion-v1-5/stable-diffusion-v1-5"
     revision = "451f4fe"
-    adapter_path = "outputs/custom_lora_dog_plush"
+    adapter_path = "artifacts/dog_plush_run_01/checkpoint"
     prompt = "A photo of zzobj02 plush toy in a modern room"
     seed = 42
 

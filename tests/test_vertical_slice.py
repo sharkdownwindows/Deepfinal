@@ -9,7 +9,8 @@ def test_config_loading():
     assert config_path.exists(), "File base.yaml không tồn tại."
     with open(config_path, "r", encoding="utf-8") as f:
         config = yaml.safe_load(f)
-    assert config["training"]["max_train_steps"] == 1000
+    assert config["training"]["max_train_steps"] == 500
+    assert config["training"]["checkpointing_steps"] == 100
     assert config["training"]["seed"] == 42
     assert config["data"]["instance_token"] == "zzobj02"
 
