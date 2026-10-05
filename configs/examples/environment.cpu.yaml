@@ -1,0 +1,34 @@
+git:
+  commit: "example-commit"
+
+python:
+  version: "3.x"
+
+packages:
+  torch:
+    version: "example"
+  diffusers:
+    version: "example"
+  transformers:
+    version: "example"
+  peft:
+    version: "example"
+  accelerate:
+    version: "example"
+
+cuda:
+  available: false
+  version: null
+
+driver:
+  version: null
+
+gpu:
+  name: null
+  count: null
+  vram_mb: null
+
+platform:
+  system: "Windows"
+  release: "example"
+  machine: "example"
