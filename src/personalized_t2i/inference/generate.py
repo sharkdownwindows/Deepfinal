@@ -80,7 +80,8 @@ def generate_evaluation_batch(
     pipeline = StableDiffusionPipeline.from_pretrained(
         base_model_id,
         revision=base_model_revision,
-        torch_dtype=torch.float16 if device == "cuda" else torch.float32
+        torch_dtype=torch.float16 if device == "cuda" else torch.float32,
+        safety_checker=None
     )
     
     # 4. Nạp LoRA adapter nếu không phải là base baseline
