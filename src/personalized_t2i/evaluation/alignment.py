@@ -261,6 +261,7 @@ def score_clip_records(
         prompt_id = str(record.get("prompt_id") or "")
         prompt = record.get("prompt")
         seed = record.get("seed")
+        generation_mode = str(record.get("generation_mode") or "")
         image_path = record.get("image_path")
 
         rank = config_training.get("rank", record.get("rank"))
@@ -275,6 +276,7 @@ def score_clip_records(
             "concept_id": concept_id,
             "prompt_id": prompt_id,
             "generation_seed": seed,
+            "generation_mode": generation_mode,
             "checkpoint_step": record.get("checkpoint_step"),
             "rank": rank,
             "data_size": data_size,
@@ -305,6 +307,7 @@ def score_clip_records(
                 run_id,
                 prompt_id,
                 seed,
+                generation_mode or None,
             )
 
             normalized_prompt = normalize_prompt_for_clip(
@@ -333,6 +336,7 @@ def score_clip_records(
                         run_id,
                         prompt_id,
                         seed,
+                        generation_mode or None,
                     )
                 else:
                     fallback_run_id = expected_run_id or run_id or "unknown"
@@ -384,6 +388,7 @@ def upsert_clip_metrics_csv(
             "concept_id",
             "prompt_id",
             "generation_seed",
+            "generation_mode",
             "checkpoint_step",
             "rank",
             "data_size",

@@ -26,6 +26,7 @@ METRICS_COLUMNS = [
     "concept_id",
     "prompt_id",
     "generation_seed",
+    "generation_mode",
     "checkpoint_step",
     "rank",
     "data_size",
@@ -43,7 +44,10 @@ def make_sample_id(
     run_id: str,
     prompt_id: str,
     generation_seed: int,
+    generation_mode: str | None = None,
 ) -> str:
+    if generation_mode:
+        return f"{run_id}__{generation_mode}__{prompt_id}__gs{generation_seed}"
     return f"{run_id}__{prompt_id}__gs{generation_seed}"
 
 
@@ -368,6 +372,7 @@ def score_run_records(
         concept_id = str(record.get("concept_id") or "")
         prompt_id = str(record.get("prompt_id") or "")
         seed = record.get("seed")
+        generation_mode = str(record.get("generation_mode") or "")
         image_path = record.get("image_path")
 
         rank = config_training.get("rank", record.get("rank"))
@@ -382,6 +387,7 @@ def score_run_records(
             "concept_id": concept_id,
             "prompt_id": prompt_id,
             "generation_seed": seed,
+            "generation_mode": generation_mode,
             "checkpoint_step": record.get("checkpoint_step"),
             "rank": rank,
             "data_size": data_size,
@@ -412,6 +418,7 @@ def score_run_records(
                 run_id,
                 prompt_id,
                 seed,
+                generation_mode or None,
             )
 
             image_path = Path(image_path)
@@ -456,6 +463,7 @@ def score_run_records(
                         run_id,
                         prompt_id,
                         seed,
+                        generation_mode or None,
                     )
                 else:
                     fallback_run_id = expected_run_id or run_id or "unknown"
@@ -505,6 +513,7 @@ def upsert_metrics_csv(
             "concept_id",
             "prompt_id",
             "generation_seed",
+            "generation_mode",
             "checkpoint_step",
             "rank",
             "data_size",

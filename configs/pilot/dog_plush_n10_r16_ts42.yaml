@@ -1,0 +1,43 @@
+# One-step SD 1.5 LoRA pilot for runtime and adapter-load checks only.
+# This is not a core experiment result.
+run:
+  id: dog_plush_n10_r16_ts42
+  protocol_version: v1
+
+model:
+  id: stable-diffusion-v1-5/stable-diffusion-v1-5
+  revision: 451f4fe16113bff5a5d2269ed5ad43b0592e9a14
+
+data:
+  concept_id: dog_plush
+  dataset_version: v1
+  manifest: data/manifests/dog_plush_v1.csv
+  subset_size: 10
+  train_data_dir: data/raw/dog_plush/v1/train_pool
+  instance_prompt: a photo of zzobj02 plush toy
+
+training:
+  rank: 16
+  alpha: 16
+  resolution: 512
+  learning_rate: 0.0001
+  max_train_steps: 1
+  checkpointing_steps: 1
+  batch_size: 1
+  gradient_accumulation_steps: 1
+  scheduler: constant
+  warmup_steps: 0
+  mixed_precision: fp16
+  gradient_checkpointing: true
+  train_text_encoder: false
+  seed: 42
+
+inference:
+  prompt: a photo of zzobj02 plush toy on a wooden table
+  seed: 42
+  num_inference_steps: 4
+  guidance_scale: 7.5
+  lora_scale: 1.0
+
+output:
+  output_dir: artifacts/dog_plush_n10_r16_ts42

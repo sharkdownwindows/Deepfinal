@@ -6,6 +6,17 @@ from PIL import Image
 from personalized_t2i.evaluation.fidelity import Dinov2FidelityScorer
 
 
+def test_sample_ids_distinguish_base_and_adapter():
+    from personalized_t2i.evaluation.fidelity import make_sample_id
+
+    base_id = make_sample_id("run", "p01", 11, "base")
+    adapter_id = make_sample_id("run", "p01", 11, "adapter")
+
+    assert base_id == "run__base__p01__gs11"
+    assert adapter_id == "run__adapter__p01__gs11"
+    assert base_id != adapter_id
+
+
 class FakeProcessor:
     def __call__(self, images, return_tensors):
         values = []

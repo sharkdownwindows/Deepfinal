@@ -1,4 +1,5 @@
 import json
+import hashlib
 from pathlib import Path
 
 import pytest
@@ -61,15 +62,9 @@ def valid_config():
 
 
 def environment():
-    return {
-        "git": {"commit": "test-commit"},
-        "python": {"version": "3.11.9"},
-        "packages": {"torch": "test"},
-        "cuda": {"available": False, "version": None},
-        "driver": {"version": "test"},
-        "gpu": {"name": "test", "count": 0},
-        "runtime": {"platform": "test", "device": "cpu"},
-    }
+    from tests.test_environment import base_environment
+
+    return base_environment()
 
 
 def read_status(run_dir: Path):
@@ -175,8 +170,35 @@ def test_provenance_files_are_created(tmp_path):
 
     assert (run_dir / "config.resolved.yaml").exists()
     assert (run_dir / "environment.json").exists()
+    assert (run_dir / "provenance.json").exists()
+    provenance = json.loads(
+        (run_dir / "provenance.json").read_text(encoding="utf-8")
+    )
+    assert provenance["model"] == {
+        "id": valid_config()["model"]["id"],
+        "revision": "test-revision",
+    }
+    assert provenance["dataset"]["concept_id"] == "toy01"
+    assert provenance["dataset"]["dataset_version"] == "v1"
+    assert provenance["dataset"]["subset_size"] == 5
+    manifest = Path(valid_config()["data"]["manifest"])
+    expected_hash = hashlib.sha256(manifest.read_bytes()).hexdigest()
+    assert provenance["dataset"]["manifest_sha256"] == expected_hash
     assert (run_dir / "status.json").exists()
     assert (run_dir / "logs").is_dir()
     assert (run_dir / "checkpoints").is_dir()
     assert (run_dir / "adapter").is_dir()
     assert (run_dir / "generations").is_dir()
+
+
+def test_provenance_rejects_manifest_hash_mismatch(tmp_path):
+    config = valid_config()
+    config["data"]["manifest_sha256"] = "0" * 64
+
+    with pytest.raises(ValueError, match="does not match"):
+        create_run(
+            "toy01_n5_r16_ts42",
+            config,
+            environment(),
+            tmp_path,
+        )

@@ -5,6 +5,7 @@ import yaml
 
 from personalized_t2i.training.train import prepare_run
 from tests.test_config import valid_config
+from tests.test_environment import base_environment
 
 
 def write_test_config(tmp_path):
@@ -46,7 +47,7 @@ def test_prepare_run_creates_artifacts(tmp_path):
 
     run_dir = prepare_run(
         config_path=config_path,
-        environment={"test": True},
+        environment=base_environment(),
         artifacts_root=tmp_path / "artifacts",
         concepts_registry=registry,
     )
@@ -63,7 +64,7 @@ def test_prepare_run_rejects_duplicate_run(tmp_path):
 
     prepare_run(
         config_path=config_path,
-        environment={"test": True},
+        environment=base_environment(),
         artifacts_root=artifacts_root,
         concepts_registry=registry,
     )
@@ -71,7 +72,7 @@ def test_prepare_run_rejects_duplicate_run(tmp_path):
     with pytest.raises(FileExistsError):
         prepare_run(
             config_path=config_path,
-            environment={"test": True},
+            environment=base_environment(),
             artifacts_root=artifacts_root,
             concepts_registry=registry,
         )

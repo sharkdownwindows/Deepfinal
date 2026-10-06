@@ -103,14 +103,16 @@ def _require_bool(section: dict, field: str, expected: bool) -> None:
 
 def _validate_run_id(
     run_id: str,
+    concept_id: str,
     subset_size: int,
     rank: int,
+    seed: int,
 ) -> None:
     """Validate run ID format and consistency with the core experiment cell."""
 
     pattern = (
         r"^"
-        r"(?P<concept>[A-Za-z0-9]+)"
+        r"(?P<concept>[A-Za-z][A-Za-z0-9_-]*?)"
         r"_n(?P<n>[0-9]+)"
         r"_r(?P<rank>[0-9]+)"
         r"(?:_ts(?P<seed>[0-9]+))?"
@@ -137,6 +139,13 @@ def _validate_run_id(
         raise ValueError(
             "run.id rank does not match training.rank"
         )
+
+    if match.group("concept") != concept_id:
+        raise ValueError("run.id concept does not match data.concept_id")
+
+    run_seed = match.group("seed")
+    if run_seed is None or int(run_seed) != seed:
+        raise ValueError("run.id training seed does not match training.seed")
 
     if (subset_size, rank) not in CORE_CELLS:
         raise ValueError(
@@ -263,12 +272,6 @@ def validate_config(config: dict) -> None:
             "training.alpha must equal training.rank"
         )
 
-    _validate_run_id(
-        run_id,
-        subset_size,
-        rank,
-    )
-
     if training.get("resolution") != EXPECTED_RESOLUTION:
         raise ValueError(
             "training.resolution must be 512"
@@ -352,9 +355,17 @@ def validate_config(config: dict) -> None:
         False,
     )
 
-    _require_strict_int(
+    seed = _require_strict_int(
         training,
         "training.seed",
+    )
+
+    _validate_run_id(
+        run_id,
+        data["concept_id"],
+        subset_size,
+        rank,
+        seed,
     )
 
     prompt_bank_version = _require_string(

@@ -1,10 +1,13 @@
 """Run ID helpers, artifact registry, and status lifecycle."""
 
 import json
+import hashlib
 from datetime import datetime, timezone
 from pathlib import Path
 
 import yaml
+
+from personalized_t2i.environment import validate_environment_metadata
 
 
 ALLOWED_STATUSES = {"queued", "running", "completed", "failed"}
@@ -48,13 +51,77 @@ def _status_path(run_id: str, artifacts_root: str | Path) -> Path:
     return Path(artifacts_root) / run_id / "status.json"
 
 
+def _write_json_atomic(path: Path, payload: dict) -> None:
+    temporary_path = path.with_suffix(path.suffix + ".tmp")
+    with temporary_path.open("w", encoding="utf-8") as stream:
+        json.dump(payload, stream, indent=2)
+        stream.write("\n")
+    temporary_path.replace(path)
+
+
+def _manifest_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _build_provenance(config: dict, repository_root: str | Path = ".") -> dict:
+    model = config.get("model")
+    data = config.get("data")
+    training = config.get("training")
+    if not isinstance(model, dict) or not isinstance(data, dict):
+        raise ValueError("Run config must include model and data mappings")
+    for key in ("id", "revision"):
+        if not isinstance(model.get(key), str) or not model[key].strip():
+            raise ValueError(f"model.{key} is required for run provenance")
+    for key in ("concept_id", "dataset_version", "manifest"):
+        if not isinstance(data.get(key), str) or not data[key].strip():
+            raise ValueError(f"data.{key} is required for run provenance")
+    if type(data.get("subset_size")) is not int:
+        raise ValueError("data.subset_size is required for run provenance")
+
+    manifest_path = Path(data["manifest"])
+    if not manifest_path.is_absolute():
+        manifest_path = Path(repository_root) / manifest_path
+    if not manifest_path.is_file():
+        raise FileNotFoundError(f"Dataset manifest does not exist: {manifest_path}")
+
+    dataset = {
+        "concept_id": data["concept_id"],
+        "dataset_version": data["dataset_version"],
+        "subset_size": data["subset_size"],
+        "manifest": str(manifest_path.resolve()),
+        "manifest_sha256": _manifest_sha256(manifest_path),
+        "train_data_dir": data.get("train_data_dir"),
+    }
+    provenance = {
+        "model": {"id": model["id"], "revision": model["revision"]},
+        "dataset": dataset,
+    }
+    if isinstance(training, dict):
+        provenance["training"] = {
+            key: training[key]
+            for key in ("rank", "alpha", "seed", "max_train_steps")
+            if key in training
+        }
+    configured_hash = data.get("manifest_sha256")
+    if configured_hash and configured_hash.lower() != dataset["manifest_sha256"]:
+        raise ValueError("data.manifest_sha256 does not match the manifest")
+    return provenance
+
+
 def create_run(
     run_id: str,
     config: dict,
     environment: dict,
     artifacts_root: str | Path = "artifacts",
+    repository_root: str | Path = ".",
 ) -> Path:
     """Create a new run with queued status and provenance files."""
+    validate_environment_metadata(environment)
+    provenance = _build_provenance(config, repository_root)
     ensure_run_available(run_id, artifacts_root)
 
     run_dir = Path(artifacts_root) / run_id
@@ -75,6 +142,11 @@ def create_run(
     ) as f:
         json.dump(environment, f, indent=2)
 
+    with (run_dir / "provenance.json").open(
+        "w", encoding="utf-8"
+    ) as f:
+        json.dump(provenance, f, indent=2)
+
     status = {
         "run_id": run_id,
         "status": "queued",
@@ -83,8 +155,7 @@ def create_run(
         "error": None,
     }
 
-    with (run_dir / "status.json").open("w", encoding="utf-8") as f:
-        json.dump(status, f, indent=2)
+    _write_json_atomic(run_dir / "status.json", status)
 
     return run_dir
 
@@ -127,5 +198,4 @@ def update_run_status(
 
     current["status"] = status
 
-    with status_file.open("w", encoding="utf-8") as f:
-        json.dump(current, f, indent=2)
+    _write_json_atomic(status_file, current)

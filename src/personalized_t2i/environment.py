@@ -1,5 +1,11 @@
 from pathlib import Path
 
+from importlib import metadata as package_metadata
+import platform
+import shutil
+import subprocess
+import sys
+
 import yaml
 
 
@@ -10,6 +16,80 @@ REQUIRED_PACKAGES = [
     "peft",
     "accelerate",
 ]
+
+
+def collect_environment_metadata(git_root: str | Path = ".") -> dict:
+    """Collect the environment fields required by environment.schema.yaml."""
+    git_root = Path(git_root)
+    commit = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=git_root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    git_status = subprocess.run(
+        ["git", "status", "--porcelain"],
+        cwd=git_root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    package_versions = {}
+    for package in REQUIRED_PACKAGES:
+        try:
+            version = package_metadata.version(package)
+        except package_metadata.PackageNotFoundError:
+            version = "not-installed"
+        package_versions[package] = {"version": version}
+
+    try:
+        import torch
+    except ImportError:
+        cuda_available = False
+        cuda_version = None
+        gpu = {"name": None, "count": 0, "vram_mb": None}
+    else:
+        cuda_available = bool(torch.cuda.is_available())
+        cuda_version = torch.version.cuda if cuda_available else None
+        if cuda_available:
+            props = torch.cuda.get_device_properties(0)
+            gpu = {
+                "name": torch.cuda.get_device_name(0),
+                "count": torch.cuda.device_count(),
+                "vram_mb": int(props.total_memory / (1024**2)),
+            }
+        else:
+            gpu = {"name": None, "count": 0, "vram_mb": None}
+
+    driver_version = None
+    nvidia_smi_path = shutil.which("nvidia-smi")
+    if nvidia_smi_path:
+        nvidia_smi = subprocess.run(
+            [nvidia_smi_path, "--query-gpu=driver_version", "--format=csv,noheader"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if nvidia_smi.returncode == 0 and nvidia_smi.stdout.strip():
+            driver_version = nvidia_smi.stdout.splitlines()[0].strip()
+
+    return {
+        "git": {
+            "commit": commit.stdout.strip() if commit.returncode == 0 else "unknown",
+            "dirty": bool(git_status.stdout.strip()) if git_status.returncode == 0 else None,
+        },
+        "python": {"version": platform.python_version()},
+        "packages": package_versions,
+        "cuda": {"available": cuda_available, "version": cuda_version},
+        "driver": {"version": driver_version},
+        "gpu": gpu,
+        "platform": {
+            "system": platform.system(),
+            "release": platform.release(),
+            "machine": platform.machine(),
+        },
+    }
 
 
 def validate_environment_metadata(data):
