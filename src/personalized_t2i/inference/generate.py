@@ -1,11 +1,18 @@
-"""Evaluation generation smoke implementation for QA-01."""
+"""Evaluation image generation module."""
 
+import os
+import re
 import json
-from datetime import datetime, timezone
-from pathlib import Path
-
 import yaml
+from pathlib import Path
+from datetime import datetime, timezone
+from contextlib import nullcontext
+
 from PIL import Image, ImageDraw
+import torch
+from diffusers import StableDiffusionPipeline
+from safetensors.torch import load_file
+from peft import PeftModel
 
 
 def load_prompt_bank(
