@@ -37,7 +37,8 @@ def main():
     output_cfg = config.get("output", {})
 
     run_id = run_cfg.get("id", "default_run")
-    artifact_dir = Path(output_cfg.get(output_dir, f"artifacts/{run_id}"))
+    artifact_dir = Path(output_cfg.get("output_dir", f"artifacts/{run_id}"))
+    output_dir = artifact_dir / "checkpoint"
     
     # 2. Chống overwrite nghiêm ngặt: Chặn mọi run đã tồn tại (không chỉ mỗi completed)
     status_path = artifact_dir / "status.json"
