@@ -288,6 +288,10 @@ def score_clip_records(
         try:
             if not run_id:
                 raise ValueError("missing run_id")
+            if expected_run_id is not None and run_id != expected_run_id:
+                raise ValueError(
+                    f"run_id mismatch: expected {expected_run_id}, got {run_id}"
+                )
             if not concept_id:
                 raise ValueError("missing concept_id")
             if not prompt_id:

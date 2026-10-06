@@ -429,3 +429,78 @@ def test_clip_rerun_can_recover_from_previous_clip_invalid(tmp_path):
     assert row["clip_prompt_similarity"] == "0.71"
     assert row["valid"] == "True"
     assert row["invalid_reason"] == ""
+
+
+def test_clip_expected_run_id_match_is_valid():
+    from personalized_t2i.evaluation.alignment import score_clip_records
+
+    class FakeScorer:
+        def score_image_text(self, image_path, text):
+            return 0.42
+
+    run_id = "cat_mug_n5_r16_ts42"
+
+    rows = score_clip_records(
+        records=[
+            {
+                "run_id": run_id,
+                "concept_id": "cat_mug",
+                "prompt_id": "p01",
+                "prompt": "a photo of zzobj01 mug",
+                "seed": 11,
+                "image_path": "generated.png",
+            }
+        ],
+        scorer=FakeScorer(),
+        registry={
+            "cat_mug": {
+                "class_noun": "mug",
+                "unique_token": "zzobj01",
+            }
+        },
+        expected_run_id=run_id,
+    )
+
+    assert rows[0]["valid"] is True
+    assert rows[0]["clip_prompt_similarity"] == 0.42
+    assert rows[0]["invalid_reason"] == ""
+
+
+def test_clip_expected_run_id_mismatch_is_invalid():
+    from personalized_t2i.evaluation.alignment import score_clip_records
+
+    class FakeScorer:
+        def score_image_text(self, image_path, text):
+            raise AssertionError(
+                "CLIP scorer should not run for mismatched run_id"
+            )
+
+    expected_run_id = "cat_mug_n5_r16_ts42"
+
+    rows = score_clip_records(
+        records=[
+            {
+                "run_id": "dog_plush_n5_r16_ts42",
+                "concept_id": "dog_plush",
+                "prompt_id": "p01",
+                "prompt": "a photo of zzobj02 plush toy",
+                "seed": 11,
+                "image_path": "not_used.png",
+            }
+        ],
+        scorer=FakeScorer(),
+        registry={
+            "dog_plush": {
+                "class_noun": "plush toy",
+                "unique_token": "zzobj02",
+            }
+        },
+        expected_run_id=expected_run_id,
+    )
+
+    assert rows[0]["valid"] is False
+    assert rows[0]["clip_prompt_similarity"] is None
+    assert rows[0]["sample_id"] == (
+        "dog_plush_n5_r16_ts42__p01__gs11"
+    )
+    assert "CLIP: run_id mismatch" in rows[0]["invalid_reason"]
