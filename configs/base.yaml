@@ -1,2 +1,21 @@
-# Draft base configuration placeholder.
-# Populate and freeze this file after the Day-1/2 model and environment pilot.
+run:
+  id: "dog_plush_run_01"
+model:
+  id: "stable-diffusion-v1-5/stable-diffusion-v1-5"
+  revision: "451f4fe"
+training:
+  learning_rate: 0.0001
+  max_train_steps: 500
+  checkpointing_steps: 100
+  resolution: 512
+  batch_size: 1
+  seed: 42
+  rank: 4
+  alpha: 4
+data:
+  dataset_name: "custom"
+  train_data_dir: "data/raw/dog_plush/v1/train_pool/"
+  instance_prompt: "a photo of zzobj02 plush toy"
+  instance_token: "zzobj02"
+output:
+  output_dir: "artifacts/dog_plush_run_01"
