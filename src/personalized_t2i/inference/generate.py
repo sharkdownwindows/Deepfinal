@@ -9,6 +9,7 @@ from contextlib import nullcontext
 import torch
 from diffusers import StableDiffusionPipeline
 from safetensors.torch import load_file
+from peft import PeftModel
 
 def load_prompt_bank(prompt_path: str = "prompt_bank/evaluation_prompts.yaml", concept_id: str = None):
     with open(prompt_path, "r", encoding="utf-8") as f:
@@ -104,10 +105,16 @@ def generate_evaluation_batch(
         requires_safety_checker=False
     )
     
-    # 4. Nạp LoRA adapter nếu không phải là base baseline
+    
+    # 4. Nạp LoRA adapter đúng chuẩn PEFT cho mô hình Stable Diffusion UNet
     if adapter_path and os.path.exists(adapter_path):
-        print(f"[*] Loading LoRA adapter from: {adapter_path}")
-        pipeline.load_lora_weights(adapter_path)
+        print(f"[*] Loading PEFT LoRA adapter from: {adapter_path}")
+        # Nạp trực tiếp adapter vào unet bằng thư viện peft
+        pipeline.unet = PeftModel.from_pretrained(
+            pipeline.unet,
+            adapter_path,
+            subfolder="" # vì file nằm trực tiếp trong thư mục checkpoint
+        )
     else:
         print("[*] Running as Base Model Baseline (No LoRA attached)")
 
