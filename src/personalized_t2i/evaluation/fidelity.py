@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import hashlib
 import json
 import math
 import re
@@ -46,7 +47,22 @@ def make_sample_id(
     return f"{run_id}__{prompt_id}__gs{generation_seed}"
 
 
-def list_reference_images(reference_dir: str | Path) -> list[Path]:
+def _sha256_file(path: str | Path) -> str:
+    path = Path(path)
+    digest = hashlib.sha256()
+
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+
+    return digest.hexdigest()
+
+
+def list_reference_images(
+    reference_dir: str | Path,
+    manifest_path: str | Path | None = None,
+    concept_id: str | None = None,
+) -> list[Path]:
     reference_dir = Path(reference_dir)
 
     if not reference_dir.is_dir():
@@ -65,6 +81,75 @@ def list_reference_images(reference_dir: str | Path) -> list[Path]:
             f"Expected exactly 3 held-out reference images in "
             f"{reference_dir}, found {len(image_paths)}"
         )
+
+    if manifest_path is None and concept_id is None:
+        return image_paths
+
+    if manifest_path is None or not concept_id:
+        raise ValueError(
+            "manifest_path and concept_id are both required "
+            "for held-out reference verification"
+        )
+
+    manifest_path = Path(manifest_path)
+
+    if not manifest_path.is_file():
+        raise FileNotFoundError(
+            f"Dataset manifest does not exist: {manifest_path}"
+        )
+
+    with manifest_path.open("r", encoding="utf-8", newline="") as handle:
+        reader = csv.DictReader(handle)
+
+        required = {"file_path", "sha256", "concept_id", "split"}
+        if reader.fieldnames is None or not required.issubset(reader.fieldnames):
+            raise ValueError(
+                "Dataset manifest must contain file_path, sha256, "
+                "concept_id, and split"
+            )
+
+        heldout_rows = [
+            row
+            for row in reader
+            if row.get("concept_id") == concept_id
+            and row.get("split") == "heldout"
+        ]
+
+    if len(heldout_rows) != 3:
+        raise ValueError(
+            f"Expected exactly 3 held-out manifest rows for "
+            f"{concept_id}, found {len(heldout_rows)}"
+        )
+
+    expected = {
+        Path(row["file_path"]).name: row["sha256"].strip().lower()
+        for row in heldout_rows
+    }
+
+    if len(expected) != 3:
+        raise ValueError(
+            f"Held-out manifest contains duplicate file names for {concept_id}"
+        )
+
+    actual_names = {path.name for path in image_paths}
+    expected_names = set(expected)
+
+    if actual_names != expected_names:
+        missing = sorted(expected_names - actual_names)
+        unexpected = sorted(actual_names - expected_names)
+        raise ValueError(
+            "Held-out reference files do not match manifest: "
+            f"missing={missing}, unexpected={unexpected}"
+        )
+
+    for path in image_paths:
+        actual_hash = _sha256_file(path)
+        expected_hash = expected[path.name]
+
+        if actual_hash != expected_hash:
+            raise ValueError(
+                f"Held-out reference hash mismatch for {path.name}"
+            )
 
     return image_paths
 
@@ -310,6 +395,10 @@ def score_run_records(
         try:
             if not run_id:
                 raise ValueError("missing run_id")
+            if expected_run_id is not None and run_id != expected_run_id:
+                raise ValueError(
+                    f"run_id mismatch: expected {expected_run_id}, got {run_id}"
+                )
             if not concept_id:
                 raise ValueError("missing concept_id")
             if not prompt_id:
@@ -333,8 +422,18 @@ def score_run_records(
                 )
 
             if concept_id not in centroid_cache:
+                reference_dir = eval_refs_root / concept_id
+                manifest_path = config_data.get("manifest")
+
+                if manifest_path:
+                    list_reference_images(
+                        reference_dir,
+                        manifest_path=manifest_path,
+                        concept_id=concept_id,
+                    )
+
                 centroid_cache[concept_id] = scorer.build_reference_centroid(
-                    eval_refs_root / concept_id
+                    reference_dir
                 )
 
             score = scorer.score_image(
@@ -364,7 +463,7 @@ def score_run_records(
                         f"invalid__{fallback_run_id}__row{record_index:04d}"
                     )
 
-            row["invalid_reason"] = str(exc)
+            row["invalid_reason"] = f"DINO: {exc}"
 
         rows.append(row)
 
@@ -400,14 +499,46 @@ def upsert_metrics_csv(
             for column in METRICS_COLUMNS
         }
 
-        for key, value in new_row.items():
-            if key not in METRICS_COLUMNS:
-                continue
-
-            if key == "dino_subject_similarity":
-                merged[key] = "" if value is None else value
-            elif value is not None:
+        for key in (
+            "sample_id",
+            "run_id",
+            "concept_id",
+            "prompt_id",
+            "generation_seed",
+            "checkpoint_step",
+            "rank",
+            "data_size",
+        ):
+            value = new_row.get(key)
+            if value is not None:
                 merged[key] = value
+
+        dino_score = new_row.get("dino_subject_similarity")
+        merged["dino_subject_similarity"] = (
+            "" if dino_score is None else dino_score
+        )
+
+        previous = existing.get(sample_id, {})
+        previous_reason = str(
+            previous.get("invalid_reason", "") or ""
+        ).strip()
+        current_reason = str(
+            new_row.get("invalid_reason", "") or ""
+        ).strip()
+
+        retained_reasons = [
+            reason.strip()
+            for reason in previous_reason.split(";")
+            if reason.strip() and not reason.strip().startswith("DINO:")
+        ]
+
+        reasons = retained_reasons.copy()
+        if current_reason and current_reason not in reasons:
+            reasons.append(current_reason)
+
+        current_valid = bool(new_row.get("valid", False))
+        merged["valid"] = current_valid and not reasons
+        merged["invalid_reason"] = "; ".join(reasons)
 
         existing[sample_id] = merged
 
@@ -437,6 +568,13 @@ def evaluate_run_dino(
     resolved_config = load_resolved_config(
         run_dir / "config.resolved.yaml"
     )
+
+    manifest_path = resolved_config.get("data", {}).get("manifest")
+    if not manifest_path:
+        raise ValueError(
+            "Resolved config must define data.manifest "
+            "for held-out reference verification"
+        )
 
     scorer = scorer or Dinov2FidelityScorer()
 

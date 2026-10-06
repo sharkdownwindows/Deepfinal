@@ -174,7 +174,7 @@ def test_upsert_clears_stale_dino_score_for_invalid_sample(tmp_path):
         **valid_row,
         "dino_subject_similarity": None,
         "valid": False,
-        "invalid_reason": "generated image does not exist",
+        "invalid_reason": "DINO: generated image does not exist",
     }
 
     upsert_metrics_csv([valid_row], output_path)
@@ -185,7 +185,7 @@ def test_upsert_clears_stale_dino_score_for_invalid_sample(tmp_path):
 
     assert row["dino_subject_similarity"] == ""
     assert row["valid"] == "False"
-    assert row["invalid_reason"] == "generated image does not exist"
+    assert row["invalid_reason"] == "DINO: generated image does not exist"
 
 
 def test_invalid_metadata_record_is_retained(tmp_path):
@@ -259,3 +259,251 @@ def test_reference_set_requires_exactly_three_images(tmp_path):
         match="Expected exactly 3 held-out reference images",
     ):
         list_reference_images(reference_dir)
+
+def test_reference_hash_change_is_rejected(tmp_path):
+    import csv
+    import hashlib
+    import pytest
+
+    from personalized_t2i.evaluation.fidelity import list_reference_images
+
+    reference_dir = tmp_path / "refs"
+    reference_dir.mkdir()
+    manifest_path = tmp_path / "manifest.csv"
+
+    rows = []
+
+    for index, color in enumerate(
+        [(100, 10, 10), (10, 100, 10), (10, 10, 100)],
+        start=1,
+    ):
+        path = reference_dir / f"ref_{index}.png"
+        Image.new("RGB", (8, 8), color).save(path)
+
+        rows.append(
+            {
+                "file_path": f"data/eval_refs/cat_mug/{path.name}",
+                "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+                "concept_id": "cat_mug",
+                "split": "heldout",
+            }
+        )
+
+    with manifest_path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=["file_path", "sha256", "concept_id", "split"],
+        )
+        writer.writeheader()
+        writer.writerows(rows)
+
+    verified = list_reference_images(
+        reference_dir,
+        manifest_path=manifest_path,
+        concept_id="cat_mug",
+    )
+    assert len(verified) == 3
+
+    Image.new("RGB", (8, 8), (255, 255, 255)).save(
+        reference_dir / "ref_2.png"
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="Held-out reference hash mismatch",
+    ):
+        list_reference_images(
+            reference_dir,
+            manifest_path=manifest_path,
+            concept_id="cat_mug",
+        )
+
+
+def test_expected_run_id_match_is_valid(tmp_path):
+    from personalized_t2i.evaluation.fidelity import score_run_records
+
+    class FakeRunScorer:
+        def build_reference_centroid(self, reference_dir):
+            return torch.tensor([[1.0, 0.0]])
+
+        def score_image(self, image_path, reference_centroid):
+            return 0.8
+
+    generated_path = tmp_path / "sample.png"
+    Image.new("RGB", (8, 8), (100, 100, 100)).save(generated_path)
+
+    run_id = "cat_mug_n5_r16_ts42"
+
+    rows = score_run_records(
+        records=[
+            {
+                "run_id": run_id,
+                "concept_id": "cat_mug",
+                "prompt_id": "p01",
+                "seed": 11,
+                "image_path": str(generated_path),
+            }
+        ],
+        eval_refs_root=tmp_path / "eval_refs",
+        scorer=FakeRunScorer(),
+        expected_run_id=run_id,
+    )
+
+    assert rows[0]["valid"] is True
+    assert rows[0]["dino_subject_similarity"] == 0.8
+
+
+def test_expected_run_id_mismatch_is_invalid(tmp_path):
+    from personalized_t2i.evaluation.fidelity import score_run_records
+
+    class FakeRunScorer:
+        def build_reference_centroid(self, reference_dir):
+            raise AssertionError("scorer should not run for mismatched run_id")
+
+        def score_image(self, image_path, reference_centroid):
+            raise AssertionError("scorer should not run for mismatched run_id")
+
+    expected_run_id = "cat_mug_n5_r16_ts42"
+
+    rows = score_run_records(
+        records=[
+            {
+                "run_id": "dog_plush_n5_r16_ts42",
+                "concept_id": "dog_plush",
+                "prompt_id": "p01",
+                "seed": 11,
+                "image_path": str(tmp_path / "not_used.png"),
+            }
+        ],
+        eval_refs_root=tmp_path / "eval_refs",
+        scorer=FakeRunScorer(),
+        expected_run_id=expected_run_id,
+    )
+
+    assert rows[0]["valid"] is False
+    assert rows[0]["dino_subject_similarity"] is None
+    assert "run_id mismatch" in rows[0]["invalid_reason"]
+
+
+def test_dino_valid_does_not_hide_existing_clip_invalid(tmp_path):
+    import csv
+
+    from personalized_t2i.evaluation.fidelity import upsert_metrics_csv
+
+    output_path = tmp_path / "metrics.csv"
+    sample_id = "cat_mug_n5_r16_ts42__p01__gs11"
+
+    with output_path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=[
+                "sample_id",
+                "run_id",
+                "concept_id",
+                "prompt_id",
+                "generation_seed",
+                "checkpoint_step",
+                "rank",
+                "data_size",
+                "dino_subject_similarity",
+                "clip_prompt_similarity",
+                "lpips_diversity_optional",
+                "valid",
+                "invalid_reason",
+            ],
+        )
+        writer.writeheader()
+        writer.writerow(
+            {
+                "sample_id": sample_id,
+                "run_id": "cat_mug_n5_r16_ts42",
+                "concept_id": "cat_mug",
+                "prompt_id": "p01",
+                "generation_seed": 11,
+                "checkpoint_step": 500,
+                "rank": 16,
+                "data_size": 5,
+                "dino_subject_similarity": "",
+                "clip_prompt_similarity": "",
+                "lpips_diversity_optional": "",
+                "valid": False,
+                "invalid_reason": "CLIP: generated image does not exist",
+            }
+        )
+
+    upsert_metrics_csv(
+        [
+            {
+                "sample_id": sample_id,
+                "run_id": "cat_mug_n5_r16_ts42",
+                "concept_id": "cat_mug",
+                "prompt_id": "p01",
+                "generation_seed": 11,
+                "checkpoint_step": 500,
+                "rank": 16,
+                "data_size": 5,
+                "dino_subject_similarity": 0.88,
+                "valid": True,
+                "invalid_reason": "",
+            }
+        ],
+        output_path,
+    )
+
+    with output_path.open("r", encoding="utf-8", newline="") as handle:
+        row = next(csv.DictReader(handle))
+
+    assert row["dino_subject_similarity"] == "0.88"
+    assert row["valid"] == "False"
+    assert row["invalid_reason"] == "CLIP: generated image does not exist"
+
+
+def test_dino_rerun_can_recover_from_previous_dino_invalid(tmp_path):
+    import csv
+
+    from personalized_t2i.evaluation.fidelity import upsert_metrics_csv
+
+    output_path = tmp_path / "metrics.csv"
+    sample_id = "cat_mug_n5_r16_ts42__p01__gs11"
+
+    base_row = {
+        "sample_id": sample_id,
+        "run_id": "cat_mug_n5_r16_ts42",
+        "concept_id": "cat_mug",
+        "prompt_id": "p01",
+        "generation_seed": 11,
+        "checkpoint_step": 500,
+        "rank": 16,
+        "data_size": 5,
+    }
+
+    upsert_metrics_csv(
+        [
+            {
+                **base_row,
+                "dino_subject_similarity": None,
+                "valid": False,
+                "invalid_reason": "DINO: generated image does not exist",
+            }
+        ],
+        output_path,
+    )
+
+    upsert_metrics_csv(
+        [
+            {
+                **base_row,
+                "dino_subject_similarity": 0.9,
+                "valid": True,
+                "invalid_reason": "",
+            }
+        ],
+        output_path,
+    )
+
+    with output_path.open("r", encoding="utf-8", newline="") as handle:
+        row = next(csv.DictReader(handle))
+
+    assert row["dino_subject_similarity"] == "0.9"
+    assert row["valid"] == "True"
+    assert row["invalid_reason"] == ""
