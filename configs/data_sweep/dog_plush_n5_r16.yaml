@@ -2,14 +2,14 @@ data:
   dataset_name: custom
   instance_prompt: a photo of zzobj01 plush toy
   instance_token: zzobj01
-  train_data_dir: data/raw/toy01/v1_n10/train_pool/
+  train_data_dir: data/raw/dog_plush/v1_n5/train_pool/
 model:
   id: stable-diffusion-v1-5/stable-diffusion-v1-5
   revision: 451f4fe
 output:
-  output_dir: artifacts/toy01_n10_r16
+  output_dir: artifacts/dog_plush_n5_r16
 run:
-  id: toy01_n10_r16
+  id: dog_plush_n5_r16
 training:
   alpha: 16
   batch_size: 1
