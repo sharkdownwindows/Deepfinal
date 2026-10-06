@@ -1,4 +1,6 @@
 # Environment metadata contract for reproducible runs.
+# This file defines the structure and allowed types of collected
+# environment metadata. It is not the collected environment record.
 
 git:
   commit: string
@@ -7,19 +9,30 @@ python:
   version: string
 
 packages:
-  versions: object
+  torch:
+    version: string
+  diffusers:
+    version: string
+  transformers:
+    version: string
+  peft:
+    version: string
+  accelerate:
+    version: string
 
 cuda:
   available: boolean
-  version: string
+  version: string | null
 
 driver:
-  version: string
+  version: string | null
 
 gpu:
-  name: string
-  count: integer
+  name: string | null
+  count: integer | null
+  vram_mb: integer | null
 
-runtime:
-  platform: string
-  device: string
+platform:
+  system: string
+  release: string
+  machine: string
