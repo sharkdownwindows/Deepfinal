@@ -1,0 +1,30 @@
+protocol_version: v1
+description: Blind human evaluation sample plan frozen before rating.
+concepts:
+  - cat_mug
+  - dog_plush
+  - blue_white_vase
+representative_configurations:
+  - n1-r16
+  - n5-r16
+  - n10-r16
+  - n5-r4
+  - n5-r32
+prompt_bank_version: v1
+prompt_ids_by_category:
+  simple: p01
+  new_background: p03
+  viewpoint_action: p05
+  challenging_composition: p08
+fixed_generation_seed: 11
+minimum_raters: 5
+target_raters: 8
+failure_tags:
+  - identity_drift
+  - background_leakage
+  - pose_copy
+  - prompt_refusal
+  - memorization
+  - structure_artifact
+  - rendering_artifact
+  - other
