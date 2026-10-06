@@ -1,1 +1,1 @@
-failure_id,sample_id,run_id,failure_tag,notes
+case_id,run_id,concept_id,prompt_id,generation_seed,failure_tag,attribution,severity,lora_image_path,base_image_path,base_model_id,base_model_revision,nearest_training_image,automated_evidence,review_status,reviewer_id,notes

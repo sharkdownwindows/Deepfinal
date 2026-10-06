@@ -127,6 +127,11 @@ exit with an explicit “not implemented” message.
 | Build report assets | `python scripts/build_report_assets.py` | Planned |
 | Open result explorer | `python app/demo.py` | Planned |
 
+EVAL-05 case recording and validation is documented in
+[`docs/failure_taxonomy.md`](docs/failure_taxonomy.md). Validate a populated
+case register with `python scripts/validate_failure_cases.py`; the current
+header-only template correctly fails the evidence-complete check.
+
 ## Data and artifact policy
 
 - Never commit raw or processed private images, held-out reference images,
