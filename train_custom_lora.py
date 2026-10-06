@@ -12,7 +12,7 @@ MODEL_ID = "stable-diffusion-v1-5/stable-diffusion-v1-5"
 MODEL_REVISION = "451f4fe"
 INSTANCE_DIR = "data/raw/dog_plush/v1/train_pool" # Đường dẫn từ DATA-02
 INSTANCE_PROMPT = "a photo of zzobj02 plush toy"
-OUTPUT_DIR = "outputs/custom_lora_dog_plush"
+OUTPUT_DIR = "aftifacts/dog_plush_run_01/checkpoint"
 
 print("Đang tải mô hình gốc từ ML-01...")
 pipe = StableDiffusionPipeline.from_pretrained(
