@@ -119,6 +119,8 @@ def main():
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
+                encoding='utf-8',       
+                errors='replace'
             )
 
             if process.stdout is not None:
@@ -134,10 +136,10 @@ def main():
                 f"{return_code}"
             )
 
-        if not checkpoint_dir.exists():
+        adapter_file = checkpoint_dir / "pytorch_lora_weights.safetensors"
+        if not checkpoint_dir.exists() or not adapter_file.exists():
             raise RuntimeError(
-                "Training finished but checkpoint "
-                "directory was not created."
+                "Training finished but adapter weights (.safetensors) were not created."
             )
 
         # Mark run as completed.

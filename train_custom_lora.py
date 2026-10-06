@@ -14,7 +14,7 @@ INSTANCE_DIR = "data/raw/dog_plush/v1/train_pool" # Đường dẫn từ DATA-02
 INSTANCE_PROMPT = "a photo of zzobj02 plush toy"
 OUTPUT_DIR = "outputs/custom_lora_dog_plush"
 
-print("Đang tải mô hình gốc từ ML-01...")
+print("Loading base model from ML-01..")
 pipe = StableDiffusionPipeline.from_pretrained(
     MODEL_ID,
     revision=MODEL_REVISION,

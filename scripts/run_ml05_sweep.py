@@ -1,19 +1,21 @@
+import json
 import os
-import yaml
 from pathlib import Path
 import subprocess
+import sys
 import time
-import json
+import yaml
 
 def main():
-    # Chỉ định concept duy nhất
+    # Chỉ định concept duy nhất và token chuẩn zzobj02
     concepts = [
-        {"name": "dog_plush", "token": "zzobj01", "prompt": "a photo of zzobj01 plush toy"}
+        {"name": "dog_plush", "token": "zzobj02", "prompt": "a photo of zzobj02 plush toy"}
     ]
     
-    # Các mức rank theo yêu cầu ML-05, cố định n = 5
+    # Các mức rank theo yêu cầu ML-05, cố định n = 5, seed = 42
     ranks = [4, 16, 32]
     fixed_n = 5
+    seed = 42
     
     config_dir = Path("configs/ml05_sweep")
     config_dir.mkdir(parents=True, exist_ok=True)
@@ -26,11 +28,12 @@ def main():
         prompt = concept["prompt"]
         
         for r in ranks:
-            run_id = f"{c_name}_n{fixed_n}_r{r}"
+            # Đúng convention run_id kèm hậu tố seed
+            run_id = f"{c_name}_n{fixed_n}_r{r}_ts{seed}"
             output_dir = Path(f"artifacts/{run_id}")
             status_path = output_dir / "status.json"
             
-            # Tiêu chí ML-05: Không chạy lại nếu n5-r16 (hoặc run tương ứng) đã hoàn tất
+            # Tiêu chí ML-05: Không chạy lại nếu đã hoàn tất
             if output_dir.exists() and status_path.exists():
                 with open(status_path, "r", encoding="utf-8") as sf:
                     try:
@@ -57,7 +60,7 @@ def main():
 
             train_data_dir = f"data/raw/{c_name}/v1_n{fixed_n}/train_pool/"
             
-            # Cấu hình YAML cho từng mức rank
+            # Cấu hình YAML đầy đủ contract Evaluation và dùng Full SHA
             sweep_config = {
                 "run": {"id": run_id},
                 "model": {
@@ -66,22 +69,26 @@ def main():
                 },
                 "training": {
                     "learning_rate": 0.0001,
-                    "max_train_steps": 1,
+                    "max_train_steps": 500,
                     "checkpointing_steps": 100,
                     "resolution": 512,
                     "batch_size": 1,
-                    "seed": 42,
+                    "seed": seed,
                     "rank": r,
                     "alpha": r
                 },
                 "data": {
                     "dataset_name": "custom",
+                    "concept_id": c_name,
+                    "dataset_version": f"v1_n{fixed_n}",
+                    "manifest": f"data/raw/{c_name}/v1_n{fixed_n}/manifest.json",
+                    "subset_size": fixed_n,
                     "train_data_dir": train_data_dir,
                     "instance_prompt": prompt,
                     "instance_token": token
                 },
                 "output": {
-                    "output_dir": str(output_dir)
+                    "output_dir": str(output_dir).replace("\\", "/")
                 }
             }
             
@@ -90,13 +97,12 @@ def main():
                 yaml.dump(sweep_config, f, default_flow_style=False)
                 
             print(f"\n--- Bắt đầu chạy: {run_id} ---")
-            cmd = ["venv/Scripts/python.exe", "scripts/train_run.py", "--config", str(config_file_path)]
+            cmd = [sys.executable, "scripts/train_run.py", "--config", str(config_file_path)]
             
             start_time = time.time()
             result = subprocess.run(cmd)
             elapsed_time = time.time() - start_time
             
-            # Đo lường thời gian và dung lượng adapter (.safetensors)
             adapter_size_mb = 0
             checkpoint_dir = output_dir / "checkpoint"
             safetensors_file = checkpoint_dir / "pytorch_lora_weights.safetensors"
@@ -118,7 +124,6 @@ def main():
                 "skipped": False
             })
 
-    # Xuất báo cáo tổng kết ra file JSON để nghiệm thu task ML-05
     summary_path = Path("artifacts/ml05_summary_report.json")
     with open(summary_path, "w", encoding="utf-8") as sf:
         json.dump(sweep_results, sf, indent=4, ensure_ascii=False)
