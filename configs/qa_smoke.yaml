@@ -1,0 +1,22 @@
+# QA-only CPU smoke config; outputs are not trained LoRA evidence.
+run:
+  id: "qa01_cpu_smoke"
+model:
+  id: "stable-diffusion-v1-5/stable-diffusion-v1-5"
+  revision: "451f4fe"
+training:
+  learning_rate: 0.0001
+  max_train_steps: 1
+  checkpointing_steps: 100
+  resolution: 512
+  batch_size: 1
+  seed: 42
+  rank: 4
+  alpha: 4
+data:
+  dataset_name: "custom"
+  train_data_dir: "data/raw/dog_plush/v1/train_pool/"
+  instance_prompt: "a photo of zzobj02 plush toy"
+  instance_token: "zzobj02"
+output:
+  output_dir: "artifacts/qa01_cpu_smoke"
