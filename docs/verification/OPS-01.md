@@ -18,8 +18,8 @@ Repository and environment contract for reproducible LoRA experiments.
 
 ## Model revision note
 
-The planning specification requires the base model revision to be pinned after the Python/CUDA/model pilot. The current development machine has CPU-only PyTorch and no detected NVIDIA CUDA GPU, so no model revision was fabricated or frozen during OPS-01 setup.
+`configs/base.yaml` records model ID `stable-diffusion-v1-5/stable-diffusion-v1-5` and immutable revision `451f4fe16113bff5a5d2269ed5ad43b0592e9a14`. The revision was checked against the [upstream model repository](https://huggingface.co/stable-diffusion-v1-5/stable-diffusion-v1-5/tree/451f4fe16113bff5a5d2269ed5ad43b0592e9a14). This records the selected source revision; downloading the model and running the CUDA/model pilot remain unverified.
 
 ## Result
 
-OPS-01 repository/configuration contract implementation is complete. Model revision pinning remains dependent on the planned CUDA/model pilot.
+OPS-01 repository and environment contract acceptance criteria are represented in the repository: structure, ignore rules, dependency input, model ID/revision, and environment metadata schema. Model download, CUDA pilot, and training remain unverified.

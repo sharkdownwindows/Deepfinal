@@ -1,18 +1,17 @@
 """Evaluation image generation module."""
 
-import os
-import re
 import json
 import yaml
 from pathlib import Path
 from datetime import datetime, timezone
-from contextlib import nullcontext
 
 from PIL import Image, ImageDraw
-import torch
-from diffusers import StableDiffusionPipeline
-from safetensors.torch import load_file
-from peft import PeftModel
+
+from personalized_t2i.config import (
+    EXPECTED_INFERENCE_SEEDS,
+    EXPECTED_PROMPT_COUNT,
+    PROMPT_BANK_VERSION,
+)
 
 
 def load_prompt_bank(
@@ -22,16 +21,72 @@ def load_prompt_bank(
     with open(prompt_path, "r", encoding="utf-8") as f:
         data = yaml.safe_load(f)
 
+    if (
+        not isinstance(data, dict)
+        or data.get("version") != PROMPT_BANK_VERSION
+    ):
+        raise ValueError(
+            f"Prompt bank version must be {PROMPT_BANK_VERSION}: {prompt_path}"
+        )
+
     concepts = data.get("concepts", {})
-    if not concepts:
+    if not isinstance(concepts, dict) or not concepts:
         raise ValueError(f"No concepts found in prompt bank: {prompt_path}")
 
-    if not concept_id or concept_id not in concepts:
+    if concept_id is None:
         concept_id = list(concepts.keys())[0]
+    elif concept_id not in concepts:
+        raise ValueError(f"Unknown concept in prompt bank: {concept_id}")
+
+    concept_prompts = concepts[concept_id]
+    if (
+        not isinstance(concept_prompts, list)
+        or len(concept_prompts) != EXPECTED_PROMPT_COUNT
+        or any(not isinstance(item, dict) for item in concept_prompts)
+    ):
+        raise ValueError(
+            f"{concept_id} must have {EXPECTED_PROMPT_COUNT} prompts"
+        )
+
+    prompt_ids = [item.get("prompt_id") for item in concept_prompts]
+    required_categories = {
+        "simple",
+        "new_background",
+        "viewpoint_action",
+        "style",
+        "challenging_composition",
+    }
+    prompt_categories = [
+        item.get("category")
+        for item in concept_prompts
+    ]
+    valid_prompt_ids = all(
+        isinstance(prompt_id, str) and prompt_id.strip()
+        for prompt_id in prompt_ids
+    )
+    valid_categories = all(
+        isinstance(category, str) and category.strip()
+        for category in prompt_categories
+    )
+    categories = set(prompt_categories) if valid_categories else set()
+    if (
+        not valid_prompt_ids
+        or len(set(prompt_ids)) != EXPECTED_PROMPT_COUNT
+        or not valid_categories
+        or not required_categories.issubset(categories)
+    ):
+        raise ValueError(
+            f"{concept_id} must have unique prompt IDs and all evaluation categories"
+        )
+    if any(
+        not isinstance(item.get("prompt"), str) or not item["prompt"].strip()
+        for item in concept_prompts
+    ):
+        raise ValueError(f"{concept_id} contains an empty prompt")
 
     prompts = []
 
-    for item in concepts[concept_id]:
+    for item in concept_prompts:
         prompts.append(
             {
                 "id": item.get("prompt_id"),
@@ -47,7 +102,18 @@ def load_seeds(seed_path: str = "prompt_bank/generation_seeds.yaml"):
     with open(seed_path, "r", encoding="utf-8") as f:
         data = yaml.safe_load(f)
 
-    return data.get("seeds", [11, 22, 33, 44])
+    if not isinstance(data, dict) or data.get("version") != PROMPT_BANK_VERSION:
+        raise ValueError(
+            f"Seed bank version must be {PROMPT_BANK_VERSION}: {seed_path}"
+        )
+
+    seeds = data.get("seeds")
+    if seeds != EXPECTED_INFERENCE_SEEDS:
+        raise ValueError(
+            f"Seed bank must contain {EXPECTED_INFERENCE_SEEDS}: {seed_path}"
+        )
+
+    return seeds
 
 
 def generate_evaluation_batch(
@@ -139,6 +205,7 @@ def generate_evaluation_batch(
                 {
                     "run_id": run_id,
                     "concept_id": resolved_concept_id,
+                    "prompt_bank_version": PROMPT_BANK_VERSION,
                     "prompt_id": prompt_id,
                     "prompt": prompt_text,
                     "seed": seed,
