@@ -79,8 +79,10 @@ def main():
             "--lr_warmup_steps", "0",
             "--max_train_steps", str(train_cfg.get('max_train_steps', 500)),
             "--checkpointing_steps", str(train_cfg.get('checkpointing_steps', 100)),
-            "--seed", str(train_cfg.get('seed', 42))
-        ]
+            "--seed", str(train_cfg.get('seed', 42)),
+            "--rank", str(train_cfg.get('rank', 16))
+            
+              ]
         
         # 5. Thực thi và capture stdout/stderr vào file log riêng
         log_path = artifact_dir / "train.log"
