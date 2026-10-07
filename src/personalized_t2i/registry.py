@@ -97,6 +97,10 @@ def _build_provenance(config: dict, repository_root: str | Path = ".") -> dict:
         "train_data_dir": data.get("train_data_dir"),
     }
     provenance = {
+        "run": {
+            "id": config.get("run", {}).get("id"),
+            "artifact_namespace": config.get("run", {}).get("artifact_namespace", "core"),
+        },
         "model": {"id": model["id"], "revision": model["revision"]},
         "dataset": dataset,
     }

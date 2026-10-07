@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import csv
+import hashlib
 import json
 import re
 import shutil
 import subprocess
 import threading
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 import yaml
@@ -22,6 +25,125 @@ ADAPTER_FILENAMES = (
     "pytorch_lora_weights.safetensors",
     "pytorch_lora_weights.bin",
 )
+
+
+def resolve_training_subset(config: dict, repo_root: Path) -> list[Path]:
+    """Resolve the locked nested subset from the concept manifest."""
+    data = config["data"]
+    manifest_path = Path(data["manifest"])
+    if not manifest_path.is_absolute():
+        manifest_path = repo_root / manifest_path
+    manifest_path = manifest_path.resolve()
+    subset_size = data["subset_size"]
+    concept_id = data["concept_id"]
+    train_data_dir = Path(data["train_data_dir"])
+    if not train_data_dir.is_absolute():
+        train_data_dir = repo_root / train_data_dir
+    train_data_dir = train_data_dir.resolve()
+
+    required = {"file_path", "sha256", "concept_id", "split", "subset_membership"}
+    with manifest_path.open("r", encoding="utf-8", newline="") as stream:
+        reader = csv.DictReader(stream)
+        if reader.fieldnames is None or not required.issubset(reader.fieldnames):
+            raise ValueError(f"Dataset manifest is missing required columns: {manifest_path}")
+        rows = list(reader)
+
+    concept_train_rows = [
+        row for row in rows
+        if row.get("concept_id") == concept_id and row.get("split") == "train_pool"
+    ]
+    selected_rows = [
+        row for row in concept_train_rows
+        if str(subset_size) in {
+            value.strip() for value in (row.get("subset_membership") or "").split(",")
+        }
+    ]
+    if len(selected_rows) != subset_size:
+        raise ValueError(
+            f"Manifest selects {len(selected_rows)} images for {concept_id} n={subset_size}; "
+            f"expected {subset_size}"
+        )
+
+    source_images = [
+        path for path in train_data_dir.iterdir()
+        if path.is_file() and path.suffix.lower() in IMAGE_SUFFIXES
+    ]
+    if len(source_images) != len(concept_train_rows):
+        raise ValueError(
+            f"data.train_data_dir contains {len(source_images)} images; "
+            f"manifest lists {len(concept_train_rows)} train_pool images"
+        )
+
+    selected_paths = []
+    for row in selected_rows:
+        source = Path(row["file_path"])
+        if not source.is_absolute():
+            source = repo_root / source
+        source = source.resolve()
+        try:
+            source.relative_to(train_data_dir)
+        except ValueError as exc:
+            raise ValueError("Manifest training image is outside data.train_data_dir") from exc
+        if not source.is_file() or source.suffix.lower() not in IMAGE_SUFFIXES:
+            raise FileNotFoundError(f"Manifest training image is missing: {source}")
+        digest = hashlib.sha256(source.read_bytes()).hexdigest()
+        if digest != row["sha256"].strip().lower():
+            raise ValueError(f"Training image hash mismatch: {source}")
+        selected_paths.append(source)
+    return selected_paths
+
+
+def materialize_training_subset(config: dict, repo_root: Path, run_dir: Path) -> Path:
+    """Copy only the manifest-locked subset into the ignored run artifacts."""
+    selected = resolve_training_subset(config, repo_root)
+    subset_dir = run_dir / "training_data"
+    subset_dir.mkdir()
+    provenance = []
+    for index, source in enumerate(selected, start=1):
+        destination = subset_dir / f"{index:02d}{source.suffix.lower()}"
+        shutil.copy2(source, destination)
+        provenance.append({
+            "source": str(source),
+            "sha256": hashlib.sha256(destination.read_bytes()).hexdigest(),
+        })
+    (run_dir / "training_subset.json").write_text(
+        json.dumps(provenance, indent=2), encoding="utf-8"
+    )
+    return subset_dir
+
+
+def write_pilot_metadata(
+    run_dir: Path,
+    config: dict,
+    image_path: Path,
+    image_size: tuple[int, int],
+) -> Path:
+    """Write the single adapter validation sample using the evaluation schema."""
+    record = {
+        "run_id": config["run"]["id"],
+        "concept_id": config["data"]["concept_id"],
+        "prompt_bank_version": config.get("inference", {}).get("prompt_bank_version", "pilot"),
+        "prompt_id": "pilot",
+        "prompt_category": "pilot",
+        "prompt": config["inference"]["prompt"],
+        "seed": config["inference"]["seed"],
+        "generation_seed": config["inference"]["seed"],
+        "generation_mode": "adapter",
+        "lora_scale": config["inference"].get("lora_scale", 1.0),
+        "base_model_id": config["model"]["id"],
+        "model_revision": config["model"]["revision"],
+        "adapter_path": str((run_dir / "adapter").resolve()),
+        "image_path": str(image_path.resolve()),
+        "width": image_size[0],
+        "height": image_size[1],
+        "num_inference_steps": config["inference"]["num_inference_steps"],
+        "guidance_scale": config["inference"].get("guidance_scale", 7.5),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    metadata_path = run_dir / "pilot_metadata.jsonl"
+    with metadata_path.open("x", encoding="utf-8") as stream:
+        stream.write(json.dumps(record, ensure_ascii=False) + "\n")
+    return metadata_path
 
 
 def validate_training_config(config: dict, repo_root: Path) -> tuple[str, Path]:
@@ -67,15 +189,6 @@ def validate_training_config(config: dict, repo_root: Path) -> tuple[str, Path]:
     data_dir = data_dir.resolve()
     if not data_dir.is_dir():
         raise FileNotFoundError(f"Training image directory not found: {data_dir}")
-    image_count = sum(
-        path.is_file() and path.suffix.lower() in IMAGE_SUFFIXES
-        for path in data_dir.iterdir()
-    )
-    if image_count != subset_size:
-        raise ValueError(
-            f"data.train_data_dir contains {image_count} images; "
-            f"data.subset_size is {subset_size}"
-        )
     manifest_value = data.get("manifest")
     if not isinstance(manifest_value, str) or not manifest_value:
         raise ValueError("data.manifest is required for dataset provenance")
@@ -84,6 +197,7 @@ def validate_training_config(config: dict, repo_root: Path) -> tuple[str, Path]:
         manifest_path = repo_root / manifest_path
     if not manifest_path.is_file():
         raise FileNotFoundError(f"Dataset manifest not found: {manifest_path}")
+    resolve_training_subset(config, repo_root)
 
     positive_ints = (
         ("training.rank", training.get("rank")),
@@ -203,6 +317,22 @@ def _gpu_snapshot() -> tuple[int | None, int | None]:
     executable = shutil.which("nvidia-smi")
     if not executable:
         return None, None
+    try:
+        result = subprocess.run(
+            [executable, "--query-gpu=memory.used,memory.total", "--format=csv,noheader,nounits"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError:
+        return None, None
+    if result.returncode != 0 or not result.stdout.strip():
+        return None, None
+    try:
+        used, total = result.stdout.splitlines()[0].split(",")
+        return int(used.strip()), int(total.strip())
+    except (ValueError, IndexError):
+        return None, None
 
 
 def _git_revision(repository: Path) -> str | None:
@@ -216,19 +346,6 @@ def _git_revision(repository: Path) -> str | None:
     if result.returncode == 0:
         return result.stdout.strip()
     return None
-    result = subprocess.run(
-        [executable, "--query-gpu=memory.used,memory.total", "--format=csv,noheader,nounits"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if result.returncode != 0 or not result.stdout.strip():
-        return None, None
-    try:
-        used, total = result.stdout.splitlines()[0].split(",")
-        return int(used.strip()), int(total.strip())
-    except (ValueError, IndexError):
-        return None, None
 
 
 class _GpuMemoryMonitor:
@@ -276,13 +393,7 @@ def run_training(config_path: Path, trainer_script: Path, repo_root: Path) -> Pa
     if not torch.cuda.is_available():
         raise RuntimeError("ML-01 requires a CUDA GPU; select a GPU runtime (for example, Colab T4)")
 
-    data_dir = Path(config["data"]["train_data_dir"])
-    if not data_dir.is_absolute():
-        data_dir = repo_root / data_dir
-    data_dir = data_dir.resolve()
-
     trainer_output = output_dir / "trainer_output"
-    command = build_trainer_command(accelerate, trainer_script, config, trainer_output, data_dir)
     output_dir.parent.mkdir(parents=True, exist_ok=True)
     diffusers_root = trainer_script.parent.parent.parent
     environment = collect_environment_metadata(repo_root)
@@ -304,6 +415,10 @@ def run_training(config_path: Path, trainer_script: Path, repo_root: Path) -> Pa
     monitor = _GpuMemoryMonitor()
     monitor.__enter__()
     try:
+        data_dir = materialize_training_subset(config, repo_root, run_dir)
+        command = build_trainer_command(
+            accelerate, trainer_script, config, trainer_output, data_dir
+        )
         with log_path.open("w", encoding="utf-8") as log_file:
             process = subprocess.Popen(
                 command,
@@ -352,6 +467,12 @@ def run_training(config_path: Path, trainer_script: Path, repo_root: Path) -> Pa
         ).images[0]
         generated_path = run_dir / "generations" / "adapter_pilot.png"
         generated.save(generated_path)
+        write_pilot_metadata(
+            run_dir,
+            config,
+            generated_path,
+            generated.size,
+        )
         del pipe
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
@@ -360,6 +481,7 @@ def run_training(config_path: Path, trainer_script: Path, repo_root: Path) -> Pa
         used_mib, total_mib = _gpu_snapshot()
         metrics = {
             "run_id": run_id,
+            "training_steps": config["training"]["max_train_steps"],
             "training_wall_seconds": round(training_seconds, 3),
             "inference_wall_seconds": round(inference_seconds, 3),
             "total_wall_seconds": round(time.monotonic() - training_started, 3),

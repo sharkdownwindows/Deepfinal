@@ -445,11 +445,12 @@ def evaluate_run_clip(
     concept_registry_path: str | Path = DEFAULT_CONCEPT_REGISTRY,
     output_path: str | Path = "results/metrics_per_sample.csv",
     scorer: ClipPromptScorer | None = None,
+    metadata_path: str | Path | None = None,
 ) -> list[dict]:
     """Evaluate one generated run with CLIP prompt alignment."""
     run_dir = Path(artifacts_root) / run_id
 
-    records = load_metadata_records(run_dir / "metadata.jsonl")
+    records = load_metadata_records(metadata_path or run_dir / "metadata.jsonl")
     resolved_config = load_resolved_config(
         run_dir / "config.resolved.yaml"
     )

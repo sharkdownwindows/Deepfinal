@@ -11,6 +11,7 @@ secrets.*
 .venv/
 venv/
 env/
+*.egg-info/
 __pycache__/
 *.py[cod]
 .pytest_cache/
@@ -18,6 +19,18 @@ __pycache__/
 .ruff_cache/
 .coverage
 htmlcov/
+.ipynb_checkpoints/
+
+# Local scratch, test reports, and experiment telemetry
+/tmp/
+/.worktrees/
+*.log
+wandb/
+runs/
+
+# Machine-specific pilot settings and generated root-level smoke output
+/configs/local/
+/custom_verification_output.png
 
 # Private datasets (keep only directory markers and manifests)
 data/raw/**

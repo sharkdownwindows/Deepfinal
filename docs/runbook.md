@@ -51,6 +51,33 @@ For the 500-step research runs, use the corresponding `configs/ml05_sweep/`
 config only after the pilot passes and update each config to the finalized
 dataset path and full model revision.
 
+## QA vertical slice and ML-04 data sweep
+
+Run the end-to-end pilot on a CUDA runtime. It performs one training step,
+reloads the adapter, generates one pilot sample, then records DINOv2 and CLIP
+scores:
+
+```bash
+python scripts/run_vertical_slice.py \
+  --config configs/pilot/dog_plush_n10_r16_ts42.yaml \
+  --diffusers-script third_party/diffusers/examples/dreambooth/train_dreambooth_lora.py
+```
+
+After the vertical slice passes, preflight the 12 ML-04 cells and then execute
+them on a suitable Colab GPU. Each cell uses the fixed 500-step budget. Do not
+start this sweep on the local GTX 1050 Ti with 4 GiB VRAM; use a GPU runtime
+with enough free memory and preserve the generated status CSV and run artifacts.
+
+```bash
+python scripts/run_sweep.py --dry-run
+python scripts/run_sweep.py \
+  --diffusers-script third_party/diffusers/examples/dreambooth/train_dreambooth_lora.py
+```
+
+Each run's selected nested subset is hashed and copied under its ignored
+`artifacts/<run_id>/training_data/`. The timestamped sweep report records
+completed/failed cells and a separate owner-review decision for failures.
+
 ## Evidence status
 
 - BE-01 config/run validation and ML-02 training wrapper are implemented.

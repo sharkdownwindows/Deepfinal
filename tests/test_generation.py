@@ -61,6 +61,11 @@ def test_generate_matrix(tmp_path, monkeypatch):
     run_id = "r"
     artifact_dir = tmp_path / "artifacts" / run_id
     artifact_dir.mkdir(parents=True)
+    pilot_metadata = artifact_dir / "pilot_metadata.jsonl"
+    pilot_metadata.write_text('{"pilot": true}\n', encoding="utf-8")
+    evaluation_metrics = tmp_path / "results" / "metrics_per_sample.csv"
+    evaluation_metrics.parent.mkdir(parents=True)
+    evaluation_metrics.write_text("completed-evaluation\n", encoding="utf-8")
     config_path = artifact_dir / "config.resolved.yaml"
     config_path.write_text(
         yaml.safe_dump(
@@ -106,3 +111,17 @@ def test_generate_matrix(tmp_path, monkeypatch):
     assert len(created_generators) == len(records)
     assert len({id(generator) for generator in created_generators}) == len(records)
     assert all(Path(record["image_path"]).is_file() for record in records)
+    assert pilot_metadata.read_text(encoding="utf-8") == '{"pilot": true}\n'
+    assert evaluation_metrics.read_text(encoding="utf-8") == "completed-evaluation\n"
+
+    import pytest
+    completed_metadata = Path(metadata_path).read_text(encoding="utf-8")
+    with pytest.raises(FileExistsError, match="Generation metadata already exists"):
+        generate_evaluation_batch(
+            run_id=run_id,
+            adapter_path=str(adapter_path),
+            artifacts_root=str(tmp_path / "artifacts"),
+            pipeline_factory=lambda *args: pipeline,
+            generator_factory=make_generator,
+        )
+    assert Path(metadata_path).read_text(encoding="utf-8") == completed_metadata
