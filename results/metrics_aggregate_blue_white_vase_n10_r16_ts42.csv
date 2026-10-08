@@ -1,0 +1,3 @@
+run_id,generation_mode,concept_id,checkpoint_step,rank,data_size,expected_sample_count,observed_sample_count,missing_sample_count,invalid_sample_count,dino_mean,dino_sd,dino_sample_count,dino_missing_count,dino_invalid_count,clip_mean,clip_sd,clip_sample_count,clip_missing_count,clip_invalid_count
+blue_white_vase_n10_r16_ts42,adapter,blue_white_vase,,16,10,32,32,0,0,0.5063635427504778,0.03414529771383202,32,0,0,0.28845409117639065,0.018692560345661084,32,0,0
+blue_white_vase_n10_r16_ts42,base,blue_white_vase,,16,10,32,32,0,0,0.20682188461069018,0.10673454826703996,32,0,0,0.3209856580942869,0.023223395667878188,32,0,0
