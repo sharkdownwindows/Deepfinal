@@ -1,5 +1,10 @@
 # Colab sau reset: chỉ các cell cần để train LoRA
 
+Với run mới trên repo **Deepfinal**, dùng [hướng dẫn Colab mới](COLAB_TRAIN_DEEPFINAL.md)
+và [notebook 9 cell](../notebooks/colab_train_deepfinal.ipynb). Bản dưới đây giữ lại
+để đối chiếu các run cũ trong `direct_training`; không dùng lẫn checkpoint/config
+giữa hai hướng dẫn.
+
 Notebook đã kiểm tra ngày 07/10/2026:
 https://colab.research.google.com/drive/1U6DYFp7VcZ6cgZI4o5RB8PJCAZDS5xVW
 
