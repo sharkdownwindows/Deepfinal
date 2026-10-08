@@ -277,6 +277,11 @@ def build_trainer_command(
         "--mixed_precision",
         training.get("mixed_precision", "fp16"),
         str(trainer_script),
+        # The Diffusers script uses its own argument to upcast trainable LoRA
+        # parameters to float32. Passing precision only to `accelerate launch`
+        # leaves those parameters in fp16 and GradScaler refuses to unscale them.
+        "--mixed_precision",
+        training.get("mixed_precision", "fp16"),
         "--pretrained_model_name_or_path",
         model["id"],
         "--revision",

@@ -217,7 +217,8 @@ def test_trainer_command_maps_config_to_official_cli(pilot_config, tmp_path):
     )
 
     assert command[:4] == ["accelerate", "launch", "--mixed_precision", "fp16"]
-    assert str(trainer_script) in command
+    trainer_index = command.index(str(trainer_script))
+    assert command[trainer_index + 1 : trainer_index + 3] == ["--mixed_precision", "fp16"]
     assert "--rank" in command
     assert command[command.index("--rank") + 1] == "16"
     assert command[command.index("--instance_data_dir") + 1] == str(train_dir)
