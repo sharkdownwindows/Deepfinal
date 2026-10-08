@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 
 REQUIRED_COLUMNS = {
     "run_id",
+    "generation_mode",
     "concept_id",
     "rank",
     "data_size",
@@ -65,9 +66,10 @@ def _source_text(rows: list[dict[str, str]]) -> str:
 
     run_ids = sorted(
         {
-            row["run_id"].strip()
+            f"{row['run_id'].strip()}/{row['generation_mode'].strip()}"
             for row in rows
             if row.get("run_id", "").strip()
+            and row.get("generation_mode", "").strip()
         }
     )
 
@@ -92,10 +94,11 @@ def _plot_metric(
 ) -> None:
     """Plot one metric against one experiment variable."""
 
-    grouped: dict[str, list[tuple[float, float]]] = {}
+    grouped: dict[tuple[str, str], list[tuple[float, float]]] = {}
 
     for row in rows:
         concept = row["concept_id"].strip()
+        generation_mode = row["generation_mode"].strip()
 
         x_value = _float(row, x_column)
         y_value = _float(row, metric_column)
@@ -103,7 +106,7 @@ def _plot_metric(
         if x_value is None or y_value is None:
             continue
 
-        grouped.setdefault(concept, []).append((x_value, y_value))
+        grouped.setdefault((concept, generation_mode), []).append((x_value, y_value))
 
     if not grouped:
         raise ValueError(
@@ -112,8 +115,8 @@ def _plot_metric(
 
     figure, axis = plt.subplots(figsize=(8, 5))
 
-    for concept in sorted(grouped):
-        points = sorted(grouped[concept])
+    for concept, generation_mode in sorted(grouped):
+        points = sorted(grouped[(concept, generation_mode)])
 
         x_values = [point[0] for point in points]
         y_values = [point[1] for point in points]
@@ -122,14 +125,14 @@ def _plot_metric(
             x_values,
             y_values,
             marker="o",
-            label=concept,
+            label=f"{concept} ({generation_mode})",
         )
 
     axis.set_xlabel(x_label)
     axis.set_ylabel(metric_label)
     axis.set_title(title)
     axis.grid(True, alpha=0.3)
-    axis.legend(title="Concept")
+    axis.legend(title="Concept (generation mode)")
 
     figure.text(
         0.5,

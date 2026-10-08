@@ -1,1 +1,1 @@
-sample_id,run_id,concept_id,prompt_id,generation_seed,checkpoint_step,rank,data_size,dino_subject_similarity,clip_prompt_similarity,lpips_diversity_optional,valid,invalid_reason
+sample_id,run_id,concept_id,prompt_id,generation_seed,generation_mode,checkpoint_step,rank,data_size,dino_subject_similarity,clip_prompt_similarity,lpips_diversity_optional,valid,invalid_reason

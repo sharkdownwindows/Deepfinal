@@ -13,18 +13,22 @@ from personalized_t2i.evaluation.aggregate import (
 def make_row(
     seed,
     *,
+    generation_mode="adapter",
+    prompt_id="p01",
     dino="0.8",
     clip="0.7",
     valid="True",
+    invalid_reason="",
     concept_id="dog_plush",
 ):
     run_id = "dog_plush_n5_r16"
 
     return {
-        "sample_id": f"{run_id}__p01__gs{seed}",
+        "sample_id": f"{run_id}__{generation_mode}__{prompt_id}__gs{seed}",
         "run_id": run_id,
+        "generation_mode": generation_mode,
         "concept_id": concept_id,
-        "prompt_id": "p01",
+        "prompt_id": prompt_id,
         "generation_seed": str(seed),
         "checkpoint_step": "500",
         "rank": "16",
@@ -33,7 +37,7 @@ def make_row(
         "clip_prompt_similarity": clip,
         "lpips_diversity_optional": "",
         "valid": valid,
-        "invalid_reason": "",
+        "invalid_reason": invalid_reason,
     }
 
 
@@ -68,7 +72,13 @@ def test_mean_sd_and_counts():
 def test_missing_scores_are_not_zero():
     rows = [
         make_row(11, dino="0.8", clip="0.6"),
-        make_row(22, dino="", clip="0.7", valid="False"),
+        make_row(
+            22,
+            dino="",
+            clip="0.7",
+            valid="False",
+            invalid_reason="DINO: reference embedding failed",
+        ),
         make_row(33, dino="0.6", clip="0.8"),
     ]
 
@@ -85,6 +95,99 @@ def test_missing_scores_are_not_zero():
     assert result["clip_sample_count"] == 3
     assert result["clip_missing_count"] == 1
     assert result["clip_mean"] == pytest.approx(0.7)
+
+
+def test_metric_specific_failure_does_not_drop_other_metric():
+    row = make_row(
+        11,
+        dino="",
+        clip="0.73",
+        valid="False",
+        invalid_reason="DINO: reference embedding failed",
+    )
+
+    result = aggregate_rows([row], expected_sample_count=1)[0]
+
+    assert result["dino_sample_count"] == 0
+    assert result["dino_invalid_count"] == 1
+    assert result["dino_mean"] is None
+    assert result["clip_sample_count"] == 1
+    assert result["clip_invalid_count"] == 0
+    assert result["clip_mean"] == pytest.approx(0.73)
+
+
+def test_base_and_adapter_are_aggregated_separately_for_same_run():
+    rows = []
+    for mode, score in (("base", "0.2"), ("adapter", "0.8")):
+        for prompt_id in (f"p{index:02d}" for index in range(1, 9)):
+            for seed in (11, 22, 33, 44):
+                rows.append(
+                    make_row(
+                        seed,
+                        generation_mode=mode,
+                        prompt_id=prompt_id,
+                        dino=score,
+                        clip=score,
+                    )
+                )
+
+    results = aggregate_rows(rows)
+
+    assert [(row["run_id"], row["generation_mode"]) for row in results] == [
+        ("dog_plush_n5_r16", "adapter"),
+        ("dog_plush_n5_r16", "base"),
+    ]
+    adapter, base = results
+    assert adapter["observed_sample_count"] == 32
+    assert adapter["missing_sample_count"] == 0
+    assert adapter["dino_mean"] == pytest.approx(0.8)
+    assert adapter["clip_mean"] == pytest.approx(0.8)
+    assert base["observed_sample_count"] == 32
+    assert base["missing_sample_count"] == 0
+    assert base["dino_mean"] == pytest.approx(0.2)
+    assert base["clip_mean"] == pytest.approx(0.2)
+
+
+def test_protocol_missing_count_uses_prompt_seed_identity():
+    rows = [
+        make_row(seed, prompt_id=prompt_id)
+        for prompt_id in (f"p{index:02d}" for index in range(1, 9))
+        for seed in (11, 22, 33, 44)
+        if (prompt_id, seed) != ("p03", 22)
+    ]
+
+    result = aggregate_rows(rows)[0]
+
+    assert result["observed_sample_count"] == 31
+    assert result["missing_sample_count"] == 1
+
+
+def test_unexpected_protocol_prompt_seed_is_rejected():
+    rows = [
+        make_row(seed, prompt_id=prompt_id)
+        for prompt_id in (f"p{index:02d}" for index in range(1, 9))
+        for seed in (11, 22, 33, 44)
+    ]
+    rows[0]["prompt_id"] = "p09"
+
+    with pytest.raises(ValueError, match="unexpected prompt/seed identities"):
+        aggregate_rows(rows)
+
+
+def test_duplicate_prompt_seed_identity_is_rejected_even_with_distinct_sample_ids():
+    first = make_row(11)
+    duplicate = dict(first, sample_id="different-sample-id")
+
+    with pytest.raises(ValueError, match="duplicate prompt_id/generation_seed"):
+        aggregate_rows([first, duplicate], expected_sample_count=4)
+
+
+def test_generation_mode_is_required():
+    row = make_row(11)
+    row["generation_mode"] = ""
+
+    with pytest.raises(ValueError, match="without generation_mode"):
+        aggregate_rows([row], expected_sample_count=1)
 
 
 def test_duplicate_sample_is_rejected():
@@ -139,6 +242,8 @@ def test_aggregate_csv_is_written(tmp_path):
     assert len(written) == 1
     assert written[0]["dino_sample_count"] == "2"
     assert written[0]["clip_sample_count"] == "2"
+    assert written[0]["generation_mode"] == "adapter"
+    assert "dino_invalid_count" in reader.fieldnames
 
 
 def test_requested_run_filter():
